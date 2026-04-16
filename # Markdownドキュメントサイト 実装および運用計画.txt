@@ -1,0 +1,74 @@
+# Markdownドキュメントサイト 実装および運用計画
+
+GitHub PagesでMarkdownファイルを動的にレンダリングするドキュメントサイトの構成と、動作確認からデプロイまでのステップをまとめた計画です。
+
+## 1. 構成内容（実装済み）
+
+最小限のファイル構成にするため、全てのロジックとスタイル設定を `index.html` の1ファイルに集約しました。
+
+### 主要機能と使用ライブラリ
+*   **Markdownレンダリング**: `Marked.js` (Markdown → HTML変換) + `DOMPurify` (XSS対策のサニタイズ)
+*   **UIデザイン**: `Tailwind CSS` (CDN経由)のTypographyプラグインを使用し、美しく読みやすいドキュメントデザインを提供。ダークモードにも対応。
+*   **シンタックスハイライト**: `Prism.js` を使用し、コードブロックを自動でハイライト表示。
+*   **ファイル構成の自動取得**: GitHub REST API (`git/trees` エンドポイント) を使用。全ディレクトリ構造を1回のAPI呼び出しで取得し、Rate Limitを節約しつつサイドバーを生成。
+*   **目次(TOC)自動生成**: 表示中のMarkdownデータからH1〜H3要素を抽出し、右サイドバーに自動生成。
+
+---
+
+## 2. ローカルでの動作確認（手順）
+
+HTMLファイルを直接ダブルクリックでブラウザから開く(`file:///...`)ことでも基本的な表示は確認可能ですが、ルーティング(`?page=...`)などが正しく動くか検証するために、**ローカルWebサーバー** を起動して確認することを強く推奨します。
+
+### 方法A: Pythonを使う場合（コマンドライン）
+端末（ターミナル・コマンドプロンプト）を開き、`index.html` があるフォルダに移動して以下を実行します。
+```bash
+python -m http.server 8000
+```
+または Python 2の場合は `python -m SimpleHTTPServer 8000`
+ブラウザで `http://localhost:8000/` にアクセスします。
+
+### 方法B: Node.jsを使う場合（コマンドライン）
+```bash
+npx serve .
+```
+または
+```bash
+npx http-server .
+```
+表示されたURL（例: `http://localhost:3000/`）にブラウザでアクセスします。
+
+### 方法C: VS Code を使う場合
+1.  VS Codeで `index.html` を開きます。
+2.  拡張機能の **Live Server** をインストールします。
+3.  画面右下の「Go Live」をクリック、またはエディタ上で右クリックして「Open with Live Server」を選択します。
+
+> [!TIP]
+> 動作確認の際は、`index.html` の 160行目前後にある `CONFIG` の設定項目をご自身のリポジトリ情報（またはテスト用の公開リポジトリ。初期値はTypeScriptのリポジトリです）に合わせて書き換えてから確認してください。
+
+---
+
+## 3. GitHub Pages へのデプロイ手順
+
+1.  **リポジトリの準備**
+    *   GitHubに新しいリポジトリを作成、または既存のリポジトリに `index.html` と `docs` フォルダ（Markdownファイルを格納）をコミット＆プッシュします。
+2.  **GitHub Pages の設定**
+    *   GitHubの対象リポジトリ画面で **Settings** > **Pages** を開きます。
+    *   **Build and deployment** の **Source** を `Deploy from a branch` に設定します。
+    *   公開したいブランチ（例: `main` や `master`）とフォルダ（例: `/ (root)`）を選択し、**Save** をクリックします。
+3.  **URLへのアクセス**
+    *   デプロイが完了すると `https://[ユーザー名].github.io/[リポジトリ名]/` にサイトが公開されます。
+
+---
+
+## 4. GitHub APIのRate Limit（制限）回避について
+
+GitHub API を未認証の状態で呼び出した場合、**1時間あたり60リクエスト** の制限があります。
+制限を回避し上限を上げるには、Personal Access Token (PAT) を設定します。
+
+> [!WARNING]
+> 本サイトの `index.html` を GitHub Pages で公開する場合、ソースコードは誰でも閲覧可能になるため、トークンも公開状態となります。
+> 設定する場合は、必ず **リポジトリの読み取り権限（`public_repo`など）のみに限定** し、リスクを理解した上で利用してください。
+
+**設定方法**
+1.  GitHub設定の Developer Settings > Personal access tokens からトークンを作成。
+2.  `index.html` 内の `CONFIG.ghToken` に発行したトークン文字列を記述します。
